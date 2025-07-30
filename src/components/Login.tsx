@@ -1,50 +1,54 @@
-import React, { useState } from 'react';
-import { useTranslation } from 'react-i18next';
-import { api } from '../api';
-import { useNavigate } from 'react-router-dom';
+
+import React, { useState } from "react";
+import { api } from "../api";
+import { useAuth } from "../useAuth";
 
 export default function Login() {
-  const { t } = useTranslation();
-  const navigate = useNavigate();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const { setToken } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
 
-  const handleLogin = async () => {
     try {
-      const res = await api.post('/auth/login', { email, password });
-      localStorage.setItem('token', res.data.access_token);
-      alert('Login successful!');
-      navigate('/dashboard'); // ✅ Redirect Dashboardile
-    } catch (error) {
-      alert('Login failed');
+      const response = await api.post("/login", { email, password });
+      setToken(response.data.token);
+      window.location.href = "/";
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Login failed");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center mt-10">
-      <div className="bg-white p-8 rounded shadow-md w-96">
-        <h2 className="text-2xl font-bold mb-6 text-center">{t('login')}</h2>
+    <div className="p-4 max-w-md mx-auto">
+      <h2 className="text-xl mb-4">Login</h2>
+      <form onSubmit={handleLogin}>
         <input
-          className="border p-2 mb-4 w-full rounded"
+          type="email"
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
+          className="border p-2 w-full mb-2"
         />
         <input
-          className="border p-2 mb-6 w-full rounded"
           type="password"
-          placeholder={t('password')}
+          placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          className="border p-2 w-full mb-2"
         />
-        <button
-          className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded w-full"
-          onClick={handleLogin}
-        >
-          {t('login')}
+        {error && <div className="text-red-500">{error}</div>}
+        <button type="submit" className="bg-blue-500 text-white px-4 py-2" disabled={loading}>
+          {loading ? "Logging in..." : "Login"}
         </button>
-      </div>
+      </form>
     </div>
   );
 }

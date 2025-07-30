@@ -1,202 +1,131 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState } from 'react';
+import { api } from '../api';
 
-const UploadInvoice: React.FC = () => {
+interface Apartment {
+  id: number;
+  name: string;
+}
+
+export default function UploadInvoice() {
   const [file, setFile] = useState<File | null>(null);
-  const [category, setCategory] = useState('vee_arve');
-  const [invoiceDate, setInvoiceDate] = useState('');
-  const [invoiceNumber, setInvoiceNumber] = useState('');
-  const [amount, setAmount] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [unit, setUnit] = useState('m³');
-  const [price, setPrice] = useState('');
-  const [vat, setVat] = useState('24');
-  const [readingValue, setReadingValue] = useState('');
-  const [apartment, setApartment] = useState('');
-  const [uploadStatus, setUploadStatus] = useState('');
-  const [apartments, setApartments] = useState<{ id: number; name: string }[]>(
-    []
-  );
+  const [reading, setReading] = useState('');
+  const [date, setDate] = useState('');
+  const [apartments, setApartments] = useState<Apartment[]>([]);
+  const [selectedApartment, setSelectedApartment] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // ✅ Fetch korterid API-st
+  const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+
   useEffect(() => {
-    axios
-      .get('http://localhost:5001/api/apartments')
-      .then((response) => {
-        setApartments(response.data);
-      })
-      .catch((error) => {
-        console.error('Korterite laadimine ebaõnnestus:', error);
-      });
+    api
+      .get('/apartments')
+      .then((res) => setApartments(res.data))
+      .catch(() => setError('Korterite laadimine ebaõnnestus'));
   }, []);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const selectedFile = e.target.files[0];
+      const ext = selectedFile.name.split('.').pop()?.toLowerCase();
+      if (!ext || !allowedExtensions.includes(ext)) {
+        setError('Faili tüüp pole lubatud (PDF, JPG, JPEG, PNG)');
+        setFile(null);
+      } else {
+        setError('');
+        setFile(selectedFile);
+      }
+    }
+  };
+
   const handleUpload = async () => {
-    if (!file) {
-      alert('Palun vali fail');
+    if (!file || !reading || !date || !selectedApartment) {
+      setError('Kõik väljad on kohustuslikud!');
       return;
     }
 
+    setLoading(true);
+    setError('');
+    setMessage('');
+
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('category', category);
-
-    if (category === 'veenäit') {
-      formData.append('reading_value', readingValue);
-      formData.append('apartment', apartment);
-    } else {
-      formData.append('invoice_date', invoiceDate);
-      formData.append('invoice_number', invoiceNumber);
-      formData.append('amount', amount.replace(',', '.'));
-      formData.append('quantity', quantity.replace(',', '.'));
-      formData.append('unit', unit);
-      formData.append('price', price.replace(',', '.'));
-      formData.append('vat', vat.replace(',', '.'));
-    }
+    formData.append('reading', reading);
+    formData.append('date', date);
+    formData.append('apartment_id', selectedApartment);
 
     try {
-      const response = await axios.post(
-        'http://localhost:5001/invoices/upload-invoice',
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        }
-      );
-      setUploadStatus(`✅ Salvestatud: ${response.data.filename}`);
-    } catch (error) {
-      setUploadStatus('❌ Viga: Serveri viga');
-      console.error(error);
+      await api.post('/upload-reading', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      setMessage('Veenäit edukalt üles laetud!');
+      setReading('');
+      setDate('');
+      setSelectedApartment('');
+      setFile(null);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Üleslaadimine ebaõnnestus');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-md">
-      <h2 className="text-xl font-bold mb-4">Faili üleslaadimine</h2>
+    <div className="p-4 max-w-md mx-auto bg-white shadow rounded">
+      <h2 className="text-xl mb-4">Lisa veenäidu pilt</h2>
 
-      <label className="block mb-2">Kategooria:</label>
-      <select
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        className="border rounded p-2 w-full mb-4"
-      >
-        <option value="vee_arve">Vee arve</option>
-        <option value="prügi_arve">Prügi arve</option>
-        <option value="veenäit">Veenäidud</option>
-      </select>
+      <div className="mb-3">
+        <label className="block mb-1">Korter:</label>
+        <select
+          value={selectedApartment}
+          onChange={(e) => setSelectedApartment(e.target.value)}
+          className="border p-2 w-full"
+        >
+          <option value="">Vali korter</option>
+          {apartments.map((apt) => (
+            <option key={apt.id} value={apt.id}>
+              {apt.name}
+            </option>
+          ))}
+        </select>
+      </div>
 
-      <input
-        type="file"
-        onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-        className="mb-4"
-      />
+      <div className="mb-3">
+        <label className="block mb-1">Kuupäev:</label>
+        <input
+          type="date"
+          value={date}
+          onChange={(e) => setDate(e.target.value)}
+          className="border p-2 w-full"
+        />
+      </div>
 
-      {category === 'veenäit' ? (
-        <>
-          <input
-            type="text"
-            placeholder="Veenäit"
-            value={readingValue}
-            onChange={(e) => setReadingValue(e.target.value)}
-            className="border rounded p-2 w-full mb-4"
-          />
+      <div className="mb-3">
+        <label className="block mb-1">Näit (m³):</label>
+        <input
+          type="number"
+          value={reading}
+          onChange={(e) => setReading(e.target.value)}
+          className="border p-2 w-full"
+        />
+      </div>
 
-          <select
-            value={apartment}
-            onChange={(e) => setApartment(e.target.value)}
-            className="border rounded p-2 w-full mb-4"
-          >
-            <option value="">Vali korter</option>
-            {apartments.map((apt) => (
-              <option key={apt.id} value={apt.name}>
-                {apt.name}
-              </option>
-            ))}
-          </select>
-        </>
-      ) : (
-        <>
-          <input
-            type="text"
-            placeholder="Arve kuupäev (nt 30.06.2025)"
-            value={invoiceDate}
-            onChange={(e) => setInvoiceDate(e.target.value)}
-            className="border rounded p-2 w-full mb-4"
-          />
-          <input
-            type="text"
-            placeholder="Arve number"
-            value={invoiceNumber}
-            onChange={(e) => setInvoiceNumber(e.target.value)}
-            className="border rounded p-2 w-full mb-4"
-          />
+      <div className="mb-3">
+        <label className="block mb-1">Fail:</label>
+        <input type="file" onChange={handleFileChange} />
+      </div>
 
-          {/* ✅ Summa koos € märgiga */}
-          <div className="relative mb-4">
-            <input
-              type="text"
-              placeholder="Summa"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="border rounded p-2 w-full pr-10"
-            />
-            <span className="absolute right-3 top-2.5 text-gray-500">€</span>
-          </div>
-
-          {/* ✅ Kogus */}
-          <input
-            type="text"
-            placeholder="Kogus"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            className="border rounded p-2 w-full mb-4"
-          />
-
-          {/* ✅ Ühik dropdown */}
-          <select
-            value={unit}
-            onChange={(e) => setUnit(e.target.value)}
-            className="border rounded p-2 w-full mb-4"
-          >
-            <option value="m³">m³</option>
-            <option value="tk">tk</option>
-            <option value="t">t</option>
-          </select>
-
-          {/* ✅ Hind koos € märgiga */}
-          <div className="relative mb-4">
-            <input
-              type="text"
-              placeholder="Hind"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className="border rounded p-2 w-full pr-10"
-            />
-            <span className="absolute right-3 top-2.5 text-gray-500">€</span>
-          </div>
-
-          {/* ✅ Käibemaks koos % märgiga */}
-          <div className="relative mb-4">
-            <input
-              type="text"
-              placeholder="Käibemaks"
-              value={vat}
-              onChange={(e) => setVat(e.target.value)}
-              className="border rounded p-2 w-full pr-10"
-            />
-            <span className="absolute right-3 top-2.5 text-gray-500">% km</span>
-          </div>
-        </>
-      )}
+      {error && <div className="text-red-500 mb-2">{error}</div>}
+      {message && <div className="text-green-500 mb-2">{message}</div>}
 
       <button
         onClick={handleUpload}
-        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        disabled={loading}
+        className="bg-blue-500 text-white px-4 py-2 rounded"
       >
-        Lae üles
+        {loading ? 'Laen üles...' : 'Lae üles'}
       </button>
-
-      {uploadStatus && <p className="mt-4">{uploadStatus}</p>}
     </div>
   );
-};
-
-export default UploadInvoice;
+}
