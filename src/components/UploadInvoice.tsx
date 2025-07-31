@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../api';
+import { useAuth } from '../useAuth';
 
 interface Apartment {
   id: number;
@@ -39,6 +40,8 @@ export default function UploadInvoice() {
     }
   };
 
+  const { getToken } = useAuth();
+
   const handleUpload = async () => {
     if (!file || !reading || !date || !selectedApartment) {
       setError('Kõik väljad on kohustuslikud!');
@@ -52,12 +55,17 @@ export default function UploadInvoice() {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('reading', reading);
-    formData.append('date', date);
     formData.append('apartment_id', selectedApartment);
+
+    const formattedDate = new Date(date).toISOString().split('T')[0];
+    formData.append('date', formattedDate);
 
     try {
       await api.post('/upload-reading', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+          'Content-Type': 'multipart/form-data',
+        },
       });
       setMessage('Veenäit edukalt üles laetud!');
       setReading('');
@@ -120,7 +128,10 @@ export default function UploadInvoice() {
       {message && <div className="text-green-500 mb-2">{message}</div>}
 
       <button
-        onClick={handleUpload}
+        onClick={(e) => {
+          e.preventDefault();
+          handleUpload();
+        }}
         disabled={loading}
         className="bg-blue-500 text-white px-4 py-2 rounded"
       >

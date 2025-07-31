@@ -1,12 +1,13 @@
 import axios from 'axios';
 
+// Kui on Vite keskkond, siis kasuta .env faili, muidu fallback localhost
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
 export const api = axios.create({
   baseURL: API_URL,
 });
 
-// Add Authorization header from localStorage
+// ✅ Lisa Authorization header iga requesti külge
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -15,7 +16,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Global error handling
+// ✅ Global error handler – kui token on vale või aegunud → logout
 api.interceptors.response.use(
   (response) => response,
   (error) => {
