@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import UploadInvoice from './UploadInvoice';
+import ReadingsTable from './ReadingsTable'; // ✅ Lisa see import
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('upload');
@@ -39,9 +40,8 @@ const Dashboard = () => {
             Failide nimekiri
           </button>
         </div>
-
         {activeTab === 'upload' && <UploadInvoice />}
-        {activeTab === 'files' && <div>Tuleb peagi! (Failide tabel)</div>}
+        {activeTab === 'files' && <ReadingsTable />} {/* ✅ Lisa tabel */}
       </div>
     </div>
   );
